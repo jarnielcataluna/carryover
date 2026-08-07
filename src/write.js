@@ -132,6 +132,33 @@ export function apply(config) {
   return { applied, failed };
 }
 
+/**
+ * Set the verdict on pending proposals from the terminal.
+ *
+ * This is for recording a decision you have already made — reading the notes
+ * still happens in Obsidian, where the prose is legible. A blanket approve of
+ * things you have not read defeats the only safeguard in the system.
+ */
+export function setStatus(config, status, filter = null) {
+  const inbox = path.join(config.vault, config.folders.inbox);
+  if (!fs.existsSync(inbox)) return [];
+
+  const changed = [];
+  for (const name of fs.readdirSync(inbox)) {
+    if (!name.endsWith(".md")) continue;
+    const file = path.join(inbox, name);
+    const { frontmatter, body } = parseNote(fs.readFileSync(file, "utf8"));
+    if (frontmatter.status !== "pending") continue;
+
+    const title = frontmatter.title ?? name;
+    if (filter && !title.toLowerCase().includes(filter.toLowerCase())) continue;
+
+    fs.writeFileSync(file, renderNote({ ...frontmatter, status }, body));
+    changed.push(title);
+  }
+  return changed;
+}
+
 /** A proposal you did not want in a month is a proposal you do not want. */
 export function expire(config) {
   const inbox = path.join(config.vault, config.folders.inbox);

@@ -96,8 +96,14 @@ carryover extract            # extract new sessions into inbox/
 carryover extract --dry      # same, but print proposals instead of writing
 carryover extract --all --limit=5   # ignore the watermark — backfill, a slice at a time
 carryover apply              # act on everything you marked approved or rejected
+carryover skip               # declare the current backlog uninteresting
 carryover expire             # archive proposals left pending past the cutoff
 ```
+
+`skip` moves the watermark to now without extracting anything. Use it after a
+gap, or on first install: a queue of forty proposals from an untuned prompt is
+the graveyard this system exists to avoid. The transcripts stay on disk either
+way, so `extract --all` still reaches them once the prompt earns your trust.
 
 Review happens in Obsidian. Copy `vault/Review queue.base` into the vault; it
 gives four views over `inbox/` — contradictions first, then anything low

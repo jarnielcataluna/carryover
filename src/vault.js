@@ -26,22 +26,52 @@ const FIELDS = [
   "supersedes",
 ];
 
+/**
+ * Parse frontmatter, accepting both array styles.
+ *
+ * We write `domain: [a, b]`, but the moment Obsidian's property editor touches
+ * a note it rewrites that as a YAML block list. Since editing notes in Obsidian
+ * *is* the review workflow, every note we read back has been through that
+ * rewrite — a parser that only understood the style we emit would silently drop
+ * the field on exactly the notes that matter.
+ */
 export function parseNote(raw) {
-  const match = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(raw);
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(raw);
   if (!match) return { frontmatter: {}, body: raw.trim() };
 
   const frontmatter = {};
-  for (const line of match[1].split("\n")) {
+  const lines = match[1].split(/\r?\n/);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*-\s/.test(line)) continue; // consumed by the key above
+
     const at = line.indexOf(":");
     if (at === -1) continue;
     const key = line.slice(0, at).trim();
-    const value = line.slice(at + 1).trim();
-    frontmatter[key] = value.startsWith("[")
-      ? value.slice(1, -1).split(",").map((v) => v.trim()).filter(Boolean)
-      : value.replace(/^["']|["']$/g, "");
+    const value = unquote(line.slice(at + 1).trim());
+
+    if (value === "") {
+      const items = [];
+      while (i + 1 < lines.length && /^\s*-\s/.test(lines[i + 1])) {
+        items.push(unquote(lines[++i].replace(/^\s*-\s*/, "")));
+      }
+      frontmatter[key] = items.length ? items : "";
+    } else if (value.startsWith("[")) {
+      frontmatter[key] = value
+        .slice(1, -1)
+        .split(",")
+        .map((v) => unquote(v.trim()))
+        .filter(Boolean);
+    } else {
+      frontmatter[key] = value;
+    }
   }
+
   return { frontmatter, body: match[2].trim() };
 }
+
+const unquote = (s) => s.replace(/^["']|["']$/g, "");
 
 export function renderNote(frontmatter, body) {
   const lines = ["---"];

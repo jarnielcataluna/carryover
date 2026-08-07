@@ -13,7 +13,7 @@ import { render } from "../src/filter.js";
 import { collect, loadWatermark, saveWatermark } from "../src/sweep.js";
 import { extract, validate } from "../src/extract.js";
 import { index } from "../src/vault.js";
-import { writeProposals, writeSource, apply, expire } from "../src/write.js";
+import { writeProposals, writeSource, apply, expire, setStatus } from "../src/write.js";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const config = JSON.parse(fs.readFileSync(path.join(root, "config.json"), "utf8"));
@@ -44,6 +44,26 @@ switch (command) {
     for (const a of applied) console.log(`  ${a.action.padEnd(10)} ${a.title}`);
     for (const f of failed) console.log(`  FAILED     ${f.title} — ${f.why}`);
     console.log(`\n${applied.length} applied, ${failed.length} failed.`);
+    break;
+  }
+  case "approve":
+  case "reject": {
+    const filter = flags.find((f) => !f.startsWith("--")) ?? null;
+    const changed = setStatus(config, `${command}d`, filter);
+    for (const title of changed) console.log(`  ${command}d   ${title}`);
+    console.log(`\n${changed.length} marked — run \`carryover apply\` to act on them.`);
+    break;
+  }
+  case "skip": {
+    // Declare the existing backlog uninteresting without extracting it. The
+    // transcripts stay on disk, so `extract --all` can still reach them later;
+    // this only moves the line for what counts as new.
+    const state = loadWatermark(stateFile);
+    const before = collect(config, state).filter((s) => !s.skipped).length;
+    state.lastRun = Date.now();
+    saveWatermark(stateFile, state);
+    console.log(`skipped ${before} pending session(s); watermark set to ${new Date(state.lastRun).toISOString()}`);
+    console.log("they are still on disk — `carryover extract --all` reaches them whenever you want.");
     break;
   }
   case "expire": {
