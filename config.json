@@ -1,0 +1,54 @@
+{
+  "vault": "C:/Users/New PC/Documents/Obsidian Vault",
+
+  "folders": {
+    "inbox": "inbox",
+    "sources": "sources",
+    "notes": "notes",
+    "maps": "maps",
+    "archive": "archive"
+  },
+
+  "sources": [
+    {
+      "harness": "claude-code",
+      "root": "C:/Users/New PC/.claude/projects"
+    },
+    {
+      "harness": "antigravity",
+      "root": "C:/Users/New PC/.gemini/antigravity-cli/brain"
+    }
+  ],
+
+  "projects": {
+    "allow": ["project-pseudo", "letsgobatanes", "carryover"]
+  },
+
+  "domains": [
+    "mcp",
+    "agents",
+    "claude-code",
+    "antigravity",
+    "obsidian",
+    "nextjs",
+    "typescript",
+    "devops",
+    "seo",
+    "writing",
+    "design",
+    "tooling"
+  ],
+
+  "expiryDays": 30,
+
+  "extractor": {
+    "command": "claude",
+    "args": ["-p"],
+    "timeoutMs": 300000
+  },
+
+  "limits": {
+    "maxTranscriptChars": 500000,
+    "maxTurnChars": 8000
+  }
+}

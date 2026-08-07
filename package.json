@@ -1,0 +1,13 @@
+{
+  "name": "carryover",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A memory layer for agent work: distils Claude Code and Antigravity sessions into an Obsidian vault.",
+  "bin": { "carryover": "./bin/carryover.js" },
+  "scripts": {
+    "sweep": "node bin/carryover.js sweep",
+    "dry": "node bin/carryover.js sweep --dry"
+  },
+  "engines": { "node": ">=22" }
+}

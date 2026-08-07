@@ -1,0 +1,76 @@
+filters:
+  and:
+    - file.inFolder("inbox")
+
+properties:
+  note.title:
+    displayName: Claim
+  note.action:
+    displayName: Action
+  note.type:
+    displayName: Kind
+  note.domain:
+    displayName: Domain
+  note.confidence:
+    displayName: Confidence
+  note.status:
+    displayName: Status
+  note.created:
+    displayName: Proposed
+
+views:
+  - type: table
+    name: Contradictions
+    filters:
+      and:
+        - note.action == "contradict"
+        - note.status == "pending"
+    order:
+      - note.title
+      - note.target
+      - note.reason
+      - note.created
+    sort:
+      - property: note.created
+        direction: ASC
+
+  - type: table
+    name: Needs attention
+    filters:
+      and:
+        - note.status == "pending"
+        - or:
+            - note.confidence == "low"
+            - note.domain.contains("unknown")
+    order:
+      - note.title
+      - note.type
+      - note.confidence
+      - note.domain
+      - note.created
+
+  - type: table
+    name: Pending
+    filters:
+      and:
+        - note.status == "pending"
+        - note.action != "contradict"
+    order:
+      - note.title
+      - note.action
+      - note.type
+      - note.domain
+      - note.confidence
+      - note.created
+    sort:
+      - property: note.created
+        direction: ASC
+
+  - type: table
+    name: Approved, not yet applied
+    filters:
+      note.status == "approved"
+    order:
+      - note.title
+      - note.action
+      - note.target
