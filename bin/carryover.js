@@ -19,9 +19,30 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const config = JSON.parse(fs.readFileSync(path.join(root, "config.json"), "utf8"));
 const stateFile = path.join(root, ".state", "watermark.json");
 
-const [command = "sweep", ...flags] = process.argv.slice(2);
+const [command, ...flags] = process.argv.slice(2);
 const dry = flags.includes("--dry");
 const all = flags.includes("--all");
+
+const USAGE = `carryover — distil agent sessions into an Obsidian vault
+
+  stats                    ingestion ratio across every session on disk
+  sweep [--all]            list what is eligible; never writes, never advances
+  extract [--all] [--limit=N] [--dry]
+                           run sessions through the extractor into inbox/
+  approve [filter]         mark pending proposals approved
+  reject  [filter]         mark pending proposals rejected
+  apply                    act on everything marked approved or rejected
+  skip                     move the watermark past the current backlog
+  expire                   archive proposals left pending past the cutoff
+`;
+
+if (!command) {
+  // Deliberately not defaulting to a command. The default used to be `sweep`,
+  // which advanced the watermark — so a bare invocation silently marked
+  // sessions processed that had never been extracted.
+  console.log(USAGE);
+  process.exit(0);
+}
 
 const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
 const tokens = (chars) => `${Math.round(chars / 4 / 1000)}k`;
@@ -113,15 +134,10 @@ function sweep() {
       `  |  ${kb(chars)} total, ~${tokens(chars)} tokens`,
   );
 
-  if (dry) {
-    console.log("\n(dry run — watermark not advanced, nothing written)");
-    return;
-  }
-
-  state.lastRun = Date.now();
-  for (const s of sessions) state.seen = { ...state.seen, [s.id]: s.mtime };
-  saveWatermark(stateFile, state);
-  console.log("\nwatermark advanced.");
+  // sweep only ever reads. Advancing the watermark here would mark sessions
+  // processed that were never extracted, and they would never be seen again —
+  // the same silent-stranding failure `extract` was already fixed for.
+  console.log("\n(nothing written — `carryover extract` is what processes these)");
 }
 
 /**
