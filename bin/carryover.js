@@ -14,6 +14,7 @@ import { collect, loadWatermark, saveWatermark } from "../src/sweep.js";
 import { extract, validate } from "../src/extract.js";
 import { index } from "../src/vault.js";
 import { writeProposals, writeSource, apply, expire, setStatus } from "../src/write.js";
+import { init, projectName, existingSessions, hookInstalled } from "../src/init.js";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const config = JSON.parse(fs.readFileSync(path.join(root, "config.json"), "utf8"));
@@ -25,6 +26,8 @@ const all = flags.includes("--all");
 
 const USAGE = `carryover — distil agent sessions into an Obsidian vault
 
+  init [--name=X] [--domain=Y]
+                           register the project you are standing in
   stats                    ingestion ratio across every session on disk
   sweep [--all]            list what is eligible; never writes, never advances
   extract [--all] [--limit=N] [--dry]
@@ -51,6 +54,9 @@ const limitFlag = flags.find((f) => f.startsWith("--limit="));
 const limit = limitFlag ? Number(limitFlag.split("=")[1]) : Infinity;
 
 switch (command) {
+  case "init":
+    setup();
+    break;
   case "sweep":
     sweep();
     break;
@@ -96,6 +102,44 @@ switch (command) {
   default:
     console.error(`unknown command: ${command}`);
     process.exit(1);
+}
+
+/**
+ * Register the project the user is standing in.
+ *
+ * Deliberately reports the state it did *not* change — the hook, and any
+ * transcripts that predate registration — because both are things that decide
+ * whether this project's sessions actually get read, and neither is visible
+ * from the config file it just edited.
+ */
+function setup() {
+  const nameFlag = flags.find((f) => f.startsWith("--name="));
+  const name = nameFlag ? nameFlag.slice("--name=".length) : projectName(process.cwd());
+  const domains = flags.filter((f) => f.startsWith("--domain=")).map((f) => f.slice("--domain=".length).toLowerCase());
+
+  const changed = init(path.join(root, "config.json"), { name, domains });
+
+  console.log(`\n  project     ${name}`);
+  console.log(`  allowlist   ${changed.project ? "added" : "already registered"}`);
+  for (const d of domains) {
+    console.log(`  domain      ${d} ${changed.domains.includes(d) ? "added" : "already in the vocabulary"}`);
+  }
+  console.log(`  hook        ${hookInstalled() ? "installed — sessions sweep on launch" : "NOT installed — run `carryover extract` by hand"}`);
+
+  // Sessions that ran before this moment were skipped as out-of-allowlist, and
+  // a skipped session older than an extracted one stays behind the watermark
+  // for good. `--all` is the only thing that reaches them.
+  const already = changed.project ? existingSessions(config, name) : 0;
+  if (already) {
+    console.log(`\n  ${already} transcript(s) already on disk predate this — they are behind the watermark.`);
+    console.log("  carryover extract --all --limit=5    to reach them, a slice at a time");
+  }
+
+  console.log(
+    changed.project
+      ? "\nregistered. nothing else to do — sessions in this project are swept from now on.\n"
+      : "\nnothing to do.\n",
+  );
 }
 
 function sweep() {
@@ -213,8 +257,16 @@ async function runExtract() {
   console.log(`\n${"─".repeat(72)}\n${sessions.length} session(s), ${total} proposal(s) — ${tail}.`);
 }
 
-/** The SessionStart hook takes this before spawning; releasing it is ours. */
+/**
+ * The SessionStart hook takes this before spawning; releasing it is ours.
+ *
+ * Only the process the hook launched may release it. This used to run for every
+ * command, so `carryover init` — or `apply`, or `stats` — would clear the lock
+ * out from under a sweep that was still running, and the next session to start
+ * would launch a second sweep over the same transcripts.
+ */
 process.on("exit", () => {
+  if (process.env.CARRYOVER_CHILD !== "1") return;
   try {
     fs.unlinkSync(path.join(root, ".state", "sweep.lock"));
   } catch {

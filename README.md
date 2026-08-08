@@ -90,6 +90,8 @@ which holds however the process was launched.
 ## Commands
 
 ```bash
+carryover init               # register the project you are standing in
+carryover init --domain=rust # ...and add a word to the domain vocabulary
 carryover stats              # ingestion ratio on your own transcripts
 carryover sweep --dry        # what is eligible, and what it would cost
 carryover extract            # extract new sessions into inbox/
@@ -99,6 +101,18 @@ carryover apply              # act on everything you marked approved or rejected
 carryover skip               # declare the current backlog uninteresting
 carryover expire             # archive proposals left pending past the cutoff
 ```
+
+`commands/carryover-init.md` is the same thing as a Claude Code slash command —
+copy it into `~/.claude/commands/` and `/carryover-init` works in any project,
+with the same flags. Like the hook, it is shipped rather than installed.
+
+`init` takes the project name from the enclosing git repository — the same thing
+the adapter derives from a session's `cwd` — and adds it to the allowlist in
+`config.json`. Run it when you start a project, not when you remember it exists:
+sessions that ran before registration are marked skipped, and a skipped session
+older than an extracted one stays behind the watermark for good. `init` says so
+when it finds transcripts in that position, and `extract --all` is what reaches
+them.
 
 `skip` moves the watermark to now without extracting anything. Use it after a
 gap, or on first install: a queue of forty proposals from an untuned prompt is
